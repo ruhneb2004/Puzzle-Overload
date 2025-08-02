@@ -4,11 +4,10 @@ import NextImage from "next/image";
 import { useEffect, useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import axios from "axios";
-import { http, usePublicClient } from "wagmi";
+import { usePublicClient } from "wagmi";
 import { toast, ToastContainer } from "react-toastify";
 import { useWalletClient } from "wagmi";
 import { abi, contractAddr } from "./abi";
-import { log } from "console";
 
 export default function Home() {
   const [tiles, setTiles] = useState<string[]>([]);
@@ -28,53 +27,106 @@ export default function Home() {
 
   useEffect(() => {
     if (!publicClient) return;
+    if (!walletClient?.account.address) return;
     const unwatchEnterGame = publicClient.watchContractEvent({
       address: contractAddr,
       abi: abi,
       eventName: "PuzzleGame_PlayerEntered",
-      onLogs: (log) => {
-        console.log("Game entered:", log);
-        toast.success(
-          "Game entered successfully! Please register your solution."
-        );
+      onLogs: (logs) => {
+        for (const log of logs) {
+          const { args } = log as {
+            args?: {
+              gameId?: number;
+              startingTime?: number;
+              player?: string;
+            };
+          };
+          if (!args) continue;
+          console.log("Game registered bhaii:", log);
+          const playerAddr = args.player;
+          console.log("Player address:", playerAddr);
+          console.log("Wallet address:", walletClient?.account.address);
+          if (playerAddr !== walletClient.account.address) continue;
+
+          toast.success("You have entered the game successfully!");
+        }
       },
     });
     return () => {
       unwatchEnterGame();
     };
-  }, [publicClient]);
+  }, [publicClient, walletClient?.account.address]);
 
   useEffect(() => {
     if (!publicClient) return;
+    if (!walletClient?.account.address) return;
     const unwatchRegisterGame = publicClient.watchContractEvent({
       address: contractAddr,
       abi: abi,
       eventName: "PuzzleGame_GameRegistered",
-      onLogs: (log) => {
-        console.log("Game entered:", log);
-        toast.success("Game registered successfully! You can now play.");
+      onLogs: (logs) => {
+        for (const log of logs) {
+          const { args } = log as {
+            args?: {
+              player?: string;
+              gameId?: number;
+              startingTime?: number;
+            };
+          };
+          if (!args) continue;
+          console.log("Game registered bhaii:", log);
+          const playerAddr = args.player;
+          console.log("Player address:", playerAddr);
+          console.log("Wallet address:", walletClient?.account.address);
+          if (playerAddr !== walletClient.account.address) continue;
+
+          console.log(
+            "Registered for game:",
+            args.gameId?.toString(),
+            "@",
+            new Date(Number(args.startingTime) * 1000)
+          );
+
+          toast.success("Game registered successfully — you're in!");
+        }
       },
     });
     return () => {
       unwatchRegisterGame();
     };
-  }, [publicClient]);
+  }, [publicClient, walletClient?.account.address]);
 
   useEffect(() => {
     if (!publicClient) return;
+    if (!walletClient?.account.address) return;
     const unwatchRoundCleared = publicClient.watchContractEvent({
       address: contractAddr,
       abi: abi,
       eventName: "PuzzleGame_RoundCleared",
-      onLogs: (log) => {
-        console.log("Round cleared:", log);
-        toast.success("Round cleared successfully! You can now proceed.");
+      onLogs: (logs) => {
+        for (const log of logs) {
+          const { args } = log as {
+            args?: {
+              gameId?: number;
+              player?: string;
+              level?: number;
+            };
+          };
+          if (!args) continue;
+          console.log("Game registered bhaii:", log);
+          const playerAddr = args.player;
+          console.log("Player address:", playerAddr);
+          console.log("Wallet address:", walletClient?.account.address);
+          if (playerAddr !== walletClient.account.address) continue;
+
+          toast.success("Round cleared successfully!");
+        }
       },
     });
     return () => {
       unwatchRoundCleared();
     };
-  }, [publicClient]);
+  }, [publicClient, walletClient?.account.address]);
 
   const enterAndRegisterGame = async () => {
     try {
@@ -88,16 +140,16 @@ export default function Home() {
       await publicClient?.waitForTransactionReceipt({
         hash: enterGame as `0x${string}`,
       });
-      const registerGame = await walletClient?.writeContract({
-        address: contractAddr,
-        abi: abi,
-        functionName: "registerGameSolution",
-        args: [answerHash],
-      });
-      await publicClient?.waitForTransactionReceipt({
-        hash: registerGame as `0x${string}`,
-      });
-      console.log("Game entered and registered successfully");
+      // const registerGame = await walletClient?.writeContract({
+      //   address: contractAddr,
+      //   abi: abi,
+      //   functionName: "registerGameSolution",
+      //   args: [answerHash],
+      // });
+      // await publicClient?.waitForTransactionReceipt({
+      //   hash: registerGame as `0x${string}`,
+      // });
+      // console.log("Game entered and registered successfully");
       fetchGameData();
     } catch (error) {
       console.log("Error entering or registering game:", error);

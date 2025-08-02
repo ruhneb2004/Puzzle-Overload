@@ -33,9 +33,11 @@ contract PuzzleGame is Ownable {
     //////////////////////////////////////////////////////////////*/
 
     event PuzzleGame_WinnerSelected(address indexed winner, uint256 indexed gameId, uint256 indexed prizeAmount);
-    event PuzzleGame_PlayerEntered(uint256 indexed gameId, uint256 indexed startingTime, uint256 entryFee);
+    event PuzzleGame_PlayerEntered(uint256 indexed gameId, uint256 indexed startingTime, address indexed player);
     event PuzzleGame_RoundCleared(uint256 indexed gameId, address indexed player, uint256 indexed level);
-    event PuzzleGame_GameRegistered(uint256 indexed gameId, uint256 indexed startingTime, uint256 entryFee);
+    event PuzzleGame_GameRegistered(
+        uint256 indexed gameId, uint256 indexed startingTime, uint256 entryFee, address indexed player
+    );
 
     /*//////////////////////////////////////////////////////////////
                                  ERRORS
@@ -80,7 +82,7 @@ contract PuzzleGame is Ownable {
         players.push(msg.sender); // Add player to the list
         playerScores[currentGameId][msg.sender] = 1; // Initialize player's score
         prizePool += i_entryFee;
-        emit PuzzleGame_PlayerEntered(currentGameId, gameStartingTime, i_entryFee);
+        emit PuzzleGame_PlayerEntered(currentGameId, gameStartingTime, msg.sender);
     }
 
     function registerGameSolution(bytes32 solution) external validEntry {
@@ -88,7 +90,7 @@ contract PuzzleGame is Ownable {
         uint256 level = playerScores[currentGameId][msg.sender]; // Assuming level is the same as score
         playerSolutions[currentGameId][msg.sender][level] = solution;
         //here I am thinking about adding a penalty like if the user changes the challenge they have to pay a fee or I will deduct a point from their score but now let it be.
-        emit PuzzleGame_GameRegistered(currentGameId, gameStartingTime, i_entryFee);
+        emit PuzzleGame_GameRegistered(currentGameId, gameStartingTime, i_entryFee, msg.sender);
     }
 
     //I have to a sig check also!

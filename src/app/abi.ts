@@ -1,4 +1,4 @@
-export const contractAddr = "0x5143faC045c7C2E7205028A2123EF7072f789432";
+export const contractAddr = "0xbF632D16EC02CbbF2c2049182e3BA7A2fe281811";
 export const abi = [
   {
     type: "constructor",
@@ -194,6 +194,12 @@ export const abi = [
         indexed: false,
         internalType: "uint256",
       },
+      {
+        name: "player",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
     ],
     anonymous: false,
   },
@@ -214,10 +220,10 @@ export const abi = [
         internalType: "uint256",
       },
       {
-        name: "entryFee",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
+        name: "player",
+        type: "address",
+        indexed: true,
+        internalType: "address",
       },
     ],
     anonymous: false,

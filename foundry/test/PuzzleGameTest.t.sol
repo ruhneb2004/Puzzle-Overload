@@ -46,7 +46,7 @@ contract PuzzleGameTest is Test {
     function testEnterGame() public {
         vm.startPrank(user);
         vm.expectEmit(true, true, false, false);
-        emit PuzzleGame.PuzzleGame_PlayerEntered(1, block.timestamp, entryFee);
+        emit PuzzleGame.PuzzleGame_PlayerEntered(1, block.timestamp, user);
         puzzleGame.enterGame{value: entryFee}();
         vm.stopPrank();
 
