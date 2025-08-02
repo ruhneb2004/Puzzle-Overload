@@ -1,103 +1,378 @@
-import Image from "next/image";
+"use client";
+import { ethers, keccak256, parseEther, toUtf8Bytes } from "ethers";
+import NextImage from "next/image";
+import { useEffect, useState } from "react";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
+import axios from "axios";
+import { http, usePublicClient } from "wagmi";
+import { toast, ToastContainer } from "react-toastify";
+import { useWalletClient } from "wagmi";
+import { abi, contractAddr } from "./abi";
+import { log } from "console";
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [tiles, setTiles] = useState<string[]>([]);
+  const [tileHashes, setTileHashes] = useState<string[]>([]);
+  const [answerHash, setAnswerHash] = useState<string>("");
+  const [selectedTile, setSelectedTile] = useState<number | null>(null);
+  const [image, setImage] = useState<string>("");
+  const [level, setLevel] = useState<number>(0);
+  const [gameId, setGameId] = useState<number>(1);
+  const [joinedHashes, setJoinedHashes] = useState<string>("");
+  const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient();
+  const [currentHash, setCurrentHash] = useState<string>(
+    "click the button to see current hash"
+  );
+  const imageSrc = `/api/imageProxy?url=https://picsum.photos/600/400?${Date.now()}`;
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  useEffect(() => {
+    if (!publicClient) return;
+    const unwatchEnterGame = publicClient.watchContractEvent({
+      address: contractAddr,
+      abi: abi,
+      eventName: "PuzzleGame_PlayerEntered",
+      onLogs: (log) => {
+        console.log("Game entered:", log);
+        toast.success(
+          "Game entered successfully! Please register your solution."
+        );
+      },
+    });
+    return () => {
+      unwatchEnterGame();
+    };
+  }, [publicClient]);
+
+  useEffect(() => {
+    if (!publicClient) return;
+    const unwatchRegisterGame = publicClient.watchContractEvent({
+      address: contractAddr,
+      abi: abi,
+      eventName: "PuzzleGame_GameRegistered",
+      onLogs: (log) => {
+        console.log("Game entered:", log);
+        toast.success("Game registered successfully! You can now play.");
+      },
+    });
+    return () => {
+      unwatchRegisterGame();
+    };
+  }, [publicClient]);
+
+  useEffect(() => {
+    if (!publicClient) return;
+    const unwatchRoundCleared = publicClient.watchContractEvent({
+      address: contractAddr,
+      abi: abi,
+      eventName: "PuzzleGame_RoundCleared",
+      onLogs: (log) => {
+        console.log("Round cleared:", log);
+        toast.success("Round cleared successfully! You can now proceed.");
+      },
+    });
+    return () => {
+      unwatchRoundCleared();
+    };
+  }, [publicClient]);
+
+  const enterAndRegisterGame = async () => {
+    try {
+      const enterGame = await walletClient?.writeContract({
+        address: contractAddr,
+        abi: abi,
+        functionName: "enterGame",
+        args: [],
+        value: BigInt(parseEther("0.001")),
+      });
+      await publicClient?.waitForTransactionReceipt({
+        hash: enterGame as `0x${string}`,
+      });
+      const registerGame = await walletClient?.writeContract({
+        address: contractAddr,
+        abi: abi,
+        functionName: "registerGameSolution",
+        args: [answerHash],
+      });
+      await publicClient?.waitForTransactionReceipt({
+        hash: registerGame as `0x${string}`,
+      });
+      console.log("Game entered and registered successfully");
+      fetchGameData();
+    } catch (error) {
+      console.log("Error entering or registering game:", error);
+    }
+  };
+  const regsiterGame = async () => {
+    try {
+      const registerGame = await walletClient?.writeContract({
+        address: contractAddr,
+        abi: abi,
+        functionName: "registerGameSolution",
+        args: [answerHash],
+      });
+      await publicClient?.waitForTransactionReceipt({
+        hash: registerGame as `0x${string}`,
+      });
+      console.log("Game registered successfully");
+      fetchGameData();
+    } catch (error) {
+      console.log("Error registering game:", error);
+    }
+  };
+  const fetchGameData = async () => {
+    console.log(publicClient?.chain.id);
+    if (!publicClient) {
+      console.log("not inited");
+      return;
+    }
+
+    const currentGameId = await publicClient?.readContract({
+      address: contractAddr,
+      abi: abi,
+      functionName: "getCurrentGameId",
+    });
+    console.log(currentGameId);
+    console.log("wallet address", walletClient?.account.address);
+    setGameId(Number(currentGameId));
+    const lvl = await publicClient?.readContract({
+      address: contractAddr,
+      abi: abi,
+      functionName: "playerScores",
+      args: [currentGameId, walletClient?.account.address],
+    });
+    setLevel(Number(lvl));
+    console.log("level", lvl);
+  };
+
+  useEffect(() => {
+    if (walletClient && publicClient) {
+      fetchGameData();
+    }
+  }, [walletClient, publicClient]);
+
+  useEffect(() => {
+    splitImage(imageSrc, level + 2, level + 2);
+  }, [level]);
+
+  const shuffleImages = (pieces: string[]) => {
+    for (let i = pieces.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pieces[i], pieces[j]] = [pieces[j], pieces[i]];
+    }
+    return pieces;
+  };
+
+  const postSolution = async () => {
+    hashTiles(tiles);
+    const res = await axios.post("/api/signMessage", { joinedHashes });
+    const signature = res.data.signature;
+    console.log("signature", signature);
+    const submit = await walletClient?.writeContract({
+      address: contractAddr,
+      abi: abi,
+      functionName: "playGame",
+      args: [tileHashes, signature],
+    });
+    await publicClient?.waitForTransactionReceipt({
+      hash: submit as `0x${string}`,
+    });
+    //we have to give this thing to blockchain
+    fetchGameData();
+  };
+
+  const hashTiles = (pieces: string[]) => {
+    const hashes: string[] = pieces.map((piece) =>
+      keccak256(toUtf8Bytes(piece))
+    );
+    setTileHashes(hashes);
+    const concatenated = ethers.solidityPacked(["bytes32[]"], [hashes]);
+    setJoinedHashes(concatenated);
+    console.log("concatenated", concatenated);
+    return keccak256(concatenated);
+  };
+
+  const splitImage = async (imageSrc: string, rows: number, cols: number) => {
+    const img = new window.Image();
+    img.src = imageSrc;
+    img.crossOrigin = "anonymous";
+
+    await new Promise((resolve) => {
+      img.onload = resolve;
+    });
+
+    const mainCanvas = document.createElement("canvas");
+    mainCanvas.width = img.width;
+    mainCanvas.height = img.height;
+    const mainCtx = mainCanvas.getContext("2d");
+    mainCtx?.drawImage(img, 0, 0);
+    setImage(mainCanvas.toDataURL("image/jpeg", 1));
+
+    const tileWidth = img.width / cols;
+    const tileHeight = img.height / rows;
+    const canvas = document.createElement("canvas");
+    canvas.width = tileWidth;
+    canvas.height = tileHeight;
+    const ctx = canvas.getContext("2d");
+
+    const pieces = [];
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        ctx?.clearRect(0, 0, tileWidth, tileHeight);
+        ctx?.drawImage(
+          img,
+          col * tileWidth,
+          row * tileHeight,
+          tileWidth,
+          tileHeight,
+          0,
+          0,
+          tileWidth,
+          tileHeight
+        );
+        pieces.push(canvas.toDataURL("image/jpeg", 1));
+      }
+    }
+    const answerHash = hashTiles(pieces);
+    setAnswerHash(answerHash);
+    setTiles(shuffleImages(pieces));
+  };
+
+  const selectAndSwapTiles = (index2: number) => {
+    if (selectedTile === null) {
+      setSelectedTile(index2);
+      return;
+    } else if (selectedTile === index2) {
+      setSelectedTile(null);
+      return;
+    }
+
+    const newTiles = [...tiles];
+    const tempTile = newTiles[selectedTile];
+    newTiles[selectedTile] = newTiles[index2];
+    newTiles[index2] = tempTile;
+    setTiles(newTiles);
+    setSelectedTile(null);
+  };
+
+  return image ? (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-6">
+      <ToastContainer />
+      <div className="w-full max-w-7xl flex flex-col items-center gap-6">
+        <div className="text-2xl text-amber-700">Level {level}</div>
+        <ConnectButton />
+
+        <div className="flex flex-col md:flex-row gap-6 w-full justify-center items-center">
+          {/* Puzzle Grid */}
+          <div
+            className={`grid border  rounded shadow-lg aspect-[3/2] w-full max-w-xl ${
+              currentHash === answerHash
+                ? "border-green-400 border-3"
+                : "border-gray-300"
+            }`}
+            style={{
+              gridTemplateColumns: `repeat(${level + 2}, 1fr)`,
+              gridTemplateRows: `repeat(${level + 2}, 1fr)`,
+            }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+            {tiles.map((tile, key) => (
+              <NextImage
+                key={key}
+                src={tile}
+                alt={`Tile ${key}`}
+                width={50}
+                height={50}
+                style={{
+                  objectFit: "cover",
+                  width: "100%",
+                  height: "100%",
+                  border:
+                    selectedTile === key
+                      ? "2px solid #6366F1"
+                      : "1px solid #E5E7EB",
+                }}
+                onClick={() => selectAndSwapTiles(key)}
+              />
+            ))}
+          </div>
+
+          {/* Original Image */}
+          <div className="w-full max-w-sm border border-gray-300 rounded shadow-md">
+            <NextImage
+              src={image}
+              alt="Original"
+              width={50}
+              height={50}
+              style={{
+                objectFit: "cover",
+                width: "100%",
+                height: "100%",
+              }}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+        {level === 0 ? (
+          <button
+            onClick={enterAndRegisterGame}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-md shadow-md transition-all duration-200 active:scale-95"
+          >
+            Enter Game
+          </button>
+        ) : (
+          <div className="flex gap-4 flex-wrap justify-center mt-4">
+            <button
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded transition"
+              onClick={() => console.log("answer hash", answerHash)}
+            >
+              Show Answer Hash
+            </button>
+            <button
+              className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded transition"
+              onClick={() => {
+                const currentHash = hashTiles(tiles);
+                setCurrentHash(currentHash);
+                console.log("joined hashes", joinedHashes);
+                console.log("current hash", currentHash);
+                console.log("tile hashes", tileHashes);
+              }}
+            >
+              Show Current Hash
+            </button>
+            <button
+              className={` text-white px-4 py-2 rounded transition ${
+                currentHash === answerHash
+                  ? "bg-green-600 hover:bg-green-700"
+                  : "cursor-not-allowed bg-gray-400"
+              }`}
+              onClick={postSolution}
+              disabled={currentHash === answerHash ? false : true}
+            >
+              Submit Solution
+            </button>
+            <button
+              onClick={regsiterGame}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-md shadow-md transition-all duration-200 active:scale-95"
+            >
+              Register Game
+            </button>
+          </div>
+        )}
+        <div>
+          <div>
+            <div className="text-gray-700">
+              <span className="font-bold">Answer Hash: </span>
+              {answerHash}
+            </div>
+          </div>
+          <div className="text-gray-700" onClick={() => {}}>
+            <span className="font-bold">Current Hash: </span>
+            {currentHash}
+          </div>
+        </div>
+      </div>
     </div>
+  ) : (
+    <div>working</div>
   );
 }
