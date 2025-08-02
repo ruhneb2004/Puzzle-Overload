@@ -44,7 +44,7 @@ Once the dev server is up, open your browser to:
 
 **http://localhost:3000**
 
-And you’re good to go—start puzzling and linking your wallet. 🎉
+And you’re good to go, start puzzling and linking your wallet. 🎉
 
 ---
 
@@ -71,8 +71,6 @@ Players race the clock, the logic, and each other. Let's see who cracks the chao
 | Blockchain   | `ethers`, `wagmi`, `viem`, `rainbowkit`    |
 | Networking   | `@tanstack/react-query`, `axios`          |
 | UI Feedback  | `react-toastify`                           |
-
-As seen on GitHub, the repo contains ~63% Solidity and ~30% JavaScript code  [oai_citation:0‡github.com](https://github.com/ruhneb2004/Puzzle-Overload?utm_source=chatgpt.com).
 
 ---
 
@@ -141,14 +139,6 @@ Love puzzles? Want to build a brand new level?
    forge test
    ```
 5. Make a **Pull Request** — we’ll be happy to review!
-
----
-
-## 📝 License
-
-_No LICENSE file currently included._
-
-If you’d like this to be open-source (MIT-style), great—simply add a `LICENSE` file with the standard MIT template, and that will go right here. If it’s meant to stay private or closed-source, that’s cool too—just mark it explicitly.
 
 ---
 
