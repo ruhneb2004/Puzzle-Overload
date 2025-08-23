@@ -23,6 +23,7 @@ contract PuzzleGame is Ownable {
     // the player level and score will be the same
     mapping(uint256 currentGameId => mapping(address player => uint256 score)) public playerScores;
     uint256 public i_entryFee;
+    mapping(address winner => uint256 totalWinnings) public playerWinnings;
     mapping(uint256 currentGameId => mapping(address player => mapping(uint256 level => bytes32 solution))) public
         playerSolutions;
     uint256 public prizePool;
@@ -51,6 +52,7 @@ contract PuzzleGame is Ownable {
     error PuzzleGame_IncorrectSolution();
     error PuzzleGame_IncorrectHashes();
     error PuzzleGame_TransactionFailed();
+    error PuzzleGame_MsgSenderNotWinner();
 
     /*//////////////////////////////////////////////////////////////
                                 MODIFIER
@@ -120,12 +122,15 @@ contract PuzzleGame is Ownable {
     // Alice 5 and Bob 5
     // then the winner will be the one who has entered the game first
     function selectWinner() external returns (address winner) {
-        if (players.length == 0) {
-            revert PuzzleGame_PlayerNotEntered();
-        }
         if (block.timestamp < gameStartingTime + GAME_DURATION) {
             revert PuzzleGame_GameNotEnded();
         }
+        if (players.length == 0) {
+            gameStartingTime = block.timestamp; // Reset game starting time if no players
+            currentGameId++;
+            return address(0);
+        }
+
         uint256 highestScore = 0;
         uint256 playerLen = players.length;
         for (uint256 i = 0; i < playerLen; i++) {
@@ -136,15 +141,23 @@ contract PuzzleGame is Ownable {
             }
         }
         uint256 winningAmount = prizePool * 9e17 / 1e18;
-        gameStartingTime = block.timestamp; // Reset game starting time for the next game
-        currentGameId++; // Increment game ID for the next game
         prizePool = 0; // Reset prize pool for the next game
+        playerWinnings[winner] += winningAmount;
+        gameStartingTime += GAME_DURATION; // Reset game starting time for the next game
+        currentGameId++; // Increment game ID for the next game
         // aderyn-ignore-next-line
-        (bool success,) = winner.call{value: winningAmount}("");
-        winner = owner();
+        players = new address[](0);
         emit PuzzleGame_WinnerSelected(winner, currentGameId - 1, winningAmount);
+    }
+
+    function claimWinnings() external {
+        uint256 winnings = playerWinnings[msg.sender];
+        if (winnings == 0) {
+            revert PuzzleGame_MsgSenderNotWinner();
+        }
+        playerWinnings[msg.sender] = 0;
+        (bool success,) = payable(msg.sender).call{value: winnings}("");
         if (!success) revert PuzzleGame_TransactionFailed();
-        delete players;
     }
 
     function withdraw() external onlyOwner {
@@ -169,5 +182,9 @@ contract PuzzleGame is Ownable {
             revert PuzzleGame_PlayerNotEntered();
         }
         return players[_index];
+    }
+
+    function getPlayerWinnings(address _player) external view returns (uint256) {
+        return playerWinnings[_player];
     }
 }

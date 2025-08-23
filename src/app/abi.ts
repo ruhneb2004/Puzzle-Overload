@@ -1,4 +1,4 @@
-export const contractAddr = "0xbF632D16EC02CbbF2c2049182e3BA7A2fe281811";
+export const contractAddr = "0xa65b8d623fCc8e260e2d25D26A8Fe34146F191c3";
 export const abi = [
   {
     type: "constructor",
@@ -18,6 +18,13 @@ export const abi = [
     inputs: [],
     outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
     stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "claimWinnings",
+    inputs: [],
+    outputs: [],
+    stateMutability: "nonpayable",
   },
   {
     type: "function",
@@ -45,6 +52,13 @@ export const abi = [
     name: "getPlayer",
     inputs: [{ name: "_index", type: "uint256", internalType: "uint256" }],
     outputs: [{ name: "", type: "address", internalType: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getPlayerWinnings",
+    inputs: [{ name: "_player", type: "address", internalType: "address" }],
+    outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
     stateMutability: "view",
   },
   {
@@ -109,6 +123,19 @@ export const abi = [
       { name: "level", type: "uint256", internalType: "uint256" },
     ],
     outputs: [{ name: "solution", type: "bytes32", internalType: "bytes32" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "playerWinnings",
+    inputs: [{ name: "winner", type: "address", internalType: "address" }],
+    outputs: [
+      {
+        name: "totalWinnings",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
     stateMutability: "view",
   },
   {
@@ -304,6 +331,7 @@ export const abi = [
   { type: "error", name: "PuzzleGame_IncorrectEntryFee", inputs: [] },
   { type: "error", name: "PuzzleGame_IncorrectHashes", inputs: [] },
   { type: "error", name: "PuzzleGame_IncorrectSolution", inputs: [] },
+  { type: "error", name: "PuzzleGame_MsgSenderNotWinner", inputs: [] },
   {
     type: "error",
     name: "PuzzleGame_PlayerAlreadyEntered",
